@@ -15,6 +15,7 @@
 package v1
 
 import (
+	"agones.dev/agones/pkg/util/runtime"
 	"strings"
 	"testing"
 
@@ -62,6 +63,9 @@ func TestGameServerSetGameServer(t *testing.T) {
 
 // TestGameServerSetValidateUpdate test GameServerSet Validate() and ValidateUpdate()
 func TestGameServerSetValidateUpdate(t *testing.T) {
+	err := runtime.ParseFeatures(string(runtime.FeatureGameServerTemplateSpecValidation) + "=true")
+	assert.NoError(t, err)
+
 	gsSpec := defaultGameServer().Spec
 	gsSet := GameServerSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "test"},

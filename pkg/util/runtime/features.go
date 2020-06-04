@@ -36,15 +36,20 @@ const (
 
 	// FeatureContainerPortAllocation is a feature flag to enable/disable allocating ports to several containers in a pod
 	FeatureContainerPortAllocation Feature = "ContainerPortAllocation"
+
+	// FeatureGameServerTemplateSpecValidation is a feature flag to enable/disable GameServerTemplateSpec validation
+	// using the Kubernetes Validation package
+	FeatureGameServerTemplateSpecValidation Feature = "GameServerTemplateSpecValidation"
 )
 
 var (
 	// featureDefaults is a map of all Feature Gates that are
 	// operational in Agones, and what their default configuration is.
 	featureDefaults = map[Feature]bool{
-		FeatureExample:                 true,
-		FeaturePlayerTracking:          false,
-		FeatureContainerPortAllocation: false,
+		FeatureExample:                          true,
+		FeaturePlayerTracking:                   false,
+		FeatureContainerPortAllocation:          false,
+		FeatureGameServerTemplateSpecValidation: false,
 	}
 
 	// featureGates is the storage of what features are enabled

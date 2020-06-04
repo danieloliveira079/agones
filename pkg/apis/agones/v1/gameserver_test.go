@@ -489,6 +489,618 @@ func TestGameServerValidate(t *testing.T) {
 				},
 				Spec: GameServerSpec{
 					Ports: []GameServerPort{{Name: "main", ContainerPort: 7777, PortPolicy: Static}},
+				},
+			},
+			applyDefaults: false,
+			isValid:       false,
+			causesExpected: []metav1.StatusCause{
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "Value 'invalid-ip' of annotation 'agones.dev/dev-address' must be a valid IP address", Field: "annotations.agones.dev/dev-address"},
+				{Type: metav1.CauseTypeFieldValueRequired, Message: "HostPort is required if GameServer is annotated with 'agones.dev/dev-address'", Field: "main.hostPort"},
+			},
+		},
+		{
+			description: "Long gs name",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: longNameLen64,
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind: "test-kind",
+				},
+				Spec: GameServerSpec{
+					Container: "my_image",
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "my_image", Image: "foo/my_image"},
+							},
+						},
+					},
+				},
+			},
+			applyDefaults: false,
+			isValid:       false,
+			causesExpected: []metav1.StatusCause{
+				{
+					Type: metav1.CauseTypeFieldValueInvalid, Message: fmt.Sprintf("Length of test-kind '%s' name should be no more than 63 characters.", longNameLen64), Field: "Name",
+				},
+			},
+		},
+		{
+			description: "Long gs GenerateName is not validated on agones side",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: longNameLen64,
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind: "test-kind",
+				},
+				Spec: GameServerSpec{
+					Container: "my_image",
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "my_image", Image: "foo/my_image"},
+							},
+						},
+					},
+				},
+			},
+			applyDefaults:  false,
+			isValid:        true,
+			causesExpected: []metav1.StatusCause{},
+		},
+		{
+			description: "Long label key is invalid",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: longNameLen64,
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind: "test-kind",
+				},
+				Spec: GameServerSpec{
+					Container: "my_image",
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "my_image", Image: "foo/my_image"},
+							},
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{longNameLen64: ""},
+						},
+					},
+				},
+			},
+			applyDefaults: false,
+			isValid:       false,
+			causesExpected: []metav1.StatusCause{
+				{
+					// error message is coming from k8s.io/apimachinery/pkg/apis/meta/v1/validation
+					Type: metav1.CauseTypeFieldValueInvalid, Message: fmt.Sprintf("labels: Invalid value: %q: name part must be no more than 63 characters", longNameLen64), Field: "labels",
+				},
+			},
+		},
+		{
+			description: "Long label value is invalid",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "ok-name",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind: "test-kind",
+				},
+				Spec: GameServerSpec{
+					Container: "my_image",
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "my_image", Image: "foo/my_image"},
+							},
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"agones.dev/longValueKey": longNameLen64},
+						},
+					},
+				},
+			},
+			applyDefaults: false,
+			isValid:       false,
+			causesExpected: []metav1.StatusCause{
+				{
+					// error message is coming from k8s.io/apimachinery/pkg/apis/meta/v1/validation
+					Type: metav1.CauseTypeFieldValueInvalid, Message: fmt.Sprintf("labels: Invalid value: %q: must be no more than 63 characters", longNameLen64), Field: "labels",
+				},
+			},
+		},
+		{
+			description: "Long annotation key is invalid",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "ok-name",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind: "test-kind",
+				},
+				Spec: GameServerSpec{
+					Container: "my_image",
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "my_image", Image: "foo/my_image"},
+							},
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{longNameLen64: longNameLen64},
+						},
+					},
+				},
+			},
+			applyDefaults: false,
+			isValid:       false,
+			causesExpected: []metav1.StatusCause{
+				{
+					// error message is coming from k8s.io/apimachinery/pkg/apis/meta/v1/validation
+					Type: metav1.CauseTypeFieldValueInvalid, Message: fmt.Sprintf("annotations: Invalid value: %q: name part must be no more than 63 characters", longNameLen64), Field: "annotations",
+				},
+			},
+		},
+		{
+			description: "Invalid character in annotation key",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "ok-name",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind: "test-kind",
+				},
+				Spec: GameServerSpec{
+					Container: "my_image",
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "my_image", Image: "foo/my_image"},
+							},
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{"agones.dev/short±Name": longNameLen64},
+						},
+					},
+				},
+			},
+			applyDefaults: false,
+			isValid:       false,
+			causesExpected: []metav1.StatusCause{
+				{
+					// error message is coming from k8s.io/apimachinery/pkg/apis/meta/v1/validation
+					Type: metav1.CauseTypeFieldValueInvalid, Message: fmt.Sprintf("annotations: Invalid value: %q: name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')", "agones.dev/short±Name"), Field: "annotations",
+				},
+			},
+		},
+		{
+			description: "Valid annotation key",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "ok-name",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind: "test-kind",
+				},
+				Spec: GameServerSpec{
+					Container: "my_image",
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "my_image", Image: "foo/my_image"},
+							},
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{"agones.dev/shortName": longNameLen64},
+						},
+					},
+				},
+			},
+			applyDefaults:  false,
+			isValid:        true,
+			causesExpected: []metav1.StatusCause{},
+		},
+		{
+			description: "Check ContainerPort and HostPort with different policies",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "ok-name",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind: "test-kind",
+				},
+				Spec: GameServerSpec{
+					Ports: []GameServerPort{
+						{Name: "one", PortPolicy: Passthrough, ContainerPort: 1294},
+						{PortPolicy: Passthrough, Name: "two", HostPort: 7890},
+						{PortPolicy: Dynamic, Name: "three", HostPort: 7890, ContainerPort: 1294},
+					},
+					Container: "my_image",
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "my_image", Image: "foo/my_image"},
+							},
+						},
+					},
+				},
+			},
+			applyDefaults: true,
+			isValid:       false,
+			causesExpected: []metav1.StatusCause{
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "ContainerPort cannot be specified with Passthrough PortPolicy", Field: "one.containerPort"},
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "HostPort cannot be specified with a Dynamic or Passthrough PortPolicy", Field: "two.hostPort"},
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "HostPort cannot be specified with a Dynamic or Passthrough PortPolicy", Field: "three.hostPort"},
+			},
+		},
+		{
+			description: "PortPolicy must be Static with HostPort specified",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "dev-game",
+					Namespace:   "default",
+					Annotations: map[string]string{DevAddressAnnotation: ipFixture},
+				},
+				Spec: GameServerSpec{
+					Ports: []GameServerPort{
+						{PortPolicy: Passthrough, Name: "main", HostPort: 7890, ContainerPort: 7777},
+					},
+					Container: "my_image",
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "my_image", Image: "foo/my_image"},
+							},
+						},
+					},
+				},
+			},
+			applyDefaults: true,
+			isValid:       false,
+			causesExpected: []metav1.StatusCause{
+				{Type: metav1.CauseTypeFieldValueRequired, Message: "PortPolicy must be Static", Field: "main.portPolicy"},
+			},
+		},
+		{
+			description: "ContainerPort is less than zero",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dev-game",
+					Namespace: "default",
+				},
+				Spec: GameServerSpec{
+					Ports: []GameServerPort{{Name: "main",
+						ContainerPort: -4,
+						PortPolicy:    Dynamic}},
+					Container: "testing",
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{Containers: []corev1.Container{
+							{Name: "testing", Image: "testing/image"},
+						}}},
+				},
+			},
+			applyDefaults: false,
+			isValid:       false,
+			causesExpected: []metav1.StatusCause{
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "ContainerPort must be defined for Dynamic and Static PortPolicies", Field: "main.containerPort"},
+			},
+		},
+		{
+			description: "CPU Request > Limit",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dev-game",
+					Namespace: "default",
+				},
+				Spec: GameServerSpec{
+					Ports: []GameServerPort{{Name: "main",
+						ContainerPort: 7777,
+						PortPolicy:    Dynamic,
+					}},
+					Container: "testing",
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{Containers: []corev1.Container{
+							{
+								Name:  "testing",
+								Image: "testing/image",
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("50m"),
+										corev1.ResourceMemory: resource.MustParse("32Mi"),
+									},
+									Limits: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("30m"),
+										corev1.ResourceMemory: resource.MustParse("32Mi"),
+									},
+								},
+							},
+						}}},
+				},
+			},
+			applyDefaults: false,
+			isValid:       false,
+			causesExpected: []metav1.StatusCause{
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "Request must be less than or equal to cpu limit", Field: "container"},
+			},
+		},
+		{
+			description: "CPU negative request",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dev-game",
+					Namespace: "default",
+				},
+				Spec: GameServerSpec{
+					Ports: []GameServerPort{{Name: "main",
+						ContainerPort: 7777,
+						PortPolicy:    Dynamic,
+					}},
+					Container: "testing",
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{Containers: []corev1.Container{
+							{
+								Name:  "testing",
+								Image: "testing/image",
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("-30m"),
+										corev1.ResourceMemory: resource.MustParse("32Mi"),
+									},
+									Limits: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("30m"),
+										corev1.ResourceMemory: resource.MustParse("32Mi"),
+									},
+								},
+							},
+						}}},
+				},
+			},
+			applyDefaults: false,
+			isValid:       false,
+			causesExpected: []metav1.StatusCause{
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "Resource cpu request value must be non negative", Field: "container"},
+			},
+		},
+		{
+			description: "CPU negative limit",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dev-game",
+					Namespace: "default",
+				},
+				Spec: GameServerSpec{
+					Ports: []GameServerPort{{Name: "main",
+						ContainerPort: 7777,
+						PortPolicy:    Dynamic,
+					}},
+					Container: "testing",
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{Containers: []corev1.Container{
+							{
+								Name:  "testing",
+								Image: "testing/image",
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("30m"),
+										corev1.ResourceMemory: resource.MustParse("32Mi"),
+									},
+									Limits: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("-30m"),
+										corev1.ResourceMemory: resource.MustParse("32Mi"),
+									},
+								},
+							},
+						}}},
+				},
+			},
+			applyDefaults: false,
+			isValid:       false,
+			causesExpected: []metav1.StatusCause{
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "Request must be less than or equal to cpu limit", Field: "container"},
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "Resource cpu limit value must be non negative", Field: "container"},
+			},
+		},
+		{
+			description: "Memory Request > Limit",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dev-game",
+					Namespace: "default",
+				},
+				Spec: GameServerSpec{
+					Ports: []GameServerPort{{Name: "main",
+						ContainerPort: 7777,
+						PortPolicy:    Dynamic,
+					}},
+					Container: "testing",
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{Containers: []corev1.Container{
+							{
+								Name:  "testing",
+								Image: "testing/image",
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("30m"),
+										corev1.ResourceMemory: resource.MustParse("55Mi"),
+									},
+									Limits: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("30m"),
+										corev1.ResourceMemory: resource.MustParse("32Mi"),
+									},
+								},
+							},
+						}}},
+				},
+			},
+			applyDefaults: false,
+			isValid:       false,
+			causesExpected: []metav1.StatusCause{
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "Request must be less than or equal to memory limit", Field: "container"},
+			},
+		},
+		{
+			description: "Memory negative request",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dev-game",
+					Namespace: "default",
+				},
+				Spec: GameServerSpec{
+					Ports: []GameServerPort{{Name: "main",
+						ContainerPort: 7777,
+						PortPolicy:    Dynamic,
+					}},
+					Container: "testing",
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{Containers: []corev1.Container{
+							{
+								Name:  "testing",
+								Image: "testing/image",
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("30m"),
+										corev1.ResourceMemory: resource.MustParse("-32Mi"),
+									},
+									Limits: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("30m"),
+										corev1.ResourceMemory: resource.MustParse("32Mi"),
+									},
+								},
+							},
+						}}},
+				},
+			},
+			applyDefaults: false,
+			isValid:       false,
+			causesExpected: []metav1.StatusCause{
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "Resource memory request value must be non negative", Field: "container"},
+			},
+		},
+		{
+			description: "Memory negative limit",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dev-game",
+					Namespace: "default",
+				},
+				Spec: GameServerSpec{
+					Ports: []GameServerPort{{Name: "main",
+						ContainerPort: 7777,
+						PortPolicy:    Dynamic,
+					}},
+					Container: "testing",
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{Containers: []corev1.Container{
+							{
+								Name:  "testing",
+								Image: "testing/image",
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("30m"),
+										corev1.ResourceMemory: resource.MustParse("32Mi"),
+									},
+									Limits: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("30m"),
+										corev1.ResourceMemory: resource.MustParse("-32Mi"),
+									},
+								},
+							},
+						}}},
+				},
+			},
+			applyDefaults: false,
+			isValid:       false,
+			causesExpected: []metav1.StatusCause{
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "Request must be less than or equal to memory limit", Field: "container"},
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "Resource memory limit value must be non negative", Field: "container"},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			err := runtime.ParseFeatures(string(runtime.FeatureGameServerTemplateSpecValidation) + "=false")
+			assert.NoError(t, err)
+
+			if tc.applyDefaults {
+				tc.gs.ApplyDefaults()
+			}
+
+			causes, ok := tc.gs.Validate()
+
+			assert.Equal(t, tc.isValid, ok)
+			assert.ElementsMatch(t, tc.causesExpected, causes, "causes check")
+		})
+	}
+}
+
+func TestGameServerValidateWithK8SValidation(t *testing.T) {
+	t.Parallel()
+
+	longNameLen64 := strings.Repeat("f", validation.LabelValueMaxLength+1)
+
+	var testCases = []struct {
+		description    string
+		gs             GameServer
+		applyDefaults  bool
+		isValid        bool
+		causesExpected []metav1.StatusCause
+	}{
+		{
+			description: "Valid game server",
+			gs: GameServer{
+				Spec: GameServerSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "testing", Image: "testing/image"}}}}},
+			},
+			applyDefaults: true,
+			isValid:       true,
+		},
+		{
+			description: "Invalid gs: container, containerPort, hostPort",
+			gs: GameServer{
+				Spec: GameServerSpec{
+					Container: "",
+					Ports: []GameServerPort{{
+						Name:       "main",
+						HostPort:   5001,
+						PortPolicy: Dynamic,
+					}, {
+						Name:          "sidecar",
+						HostPort:      5002,
+						PortPolicy:    Static,
+						ContainerPort: 5002,
+					}},
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{Containers: []corev1.Container{
+							{Name: "testing", Image: "testing/image"},
+							{Name: "anothertest", Image: "testing/image"},
+						}}}},
+			},
+			applyDefaults: false,
+			isValid:       false,
+			causesExpected: []metav1.StatusCause{
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "Container is required when using multiple containers in the pod template", Field: "container"},
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "Could not find a container named ", Field: "container"},
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "ContainerPort must be defined for Dynamic and Static PortPolicies", Field: "main.containerPort"},
+				{Type: metav1.CauseTypeFieldValueInvalid, Message: "HostPort cannot be specified with a Dynamic or Passthrough PortPolicy", Field: "main.hostPort"},
+			},
+		},
+		{
+			description: "DevAddressAnnotation: Invalid IP, no host port",
+			gs: GameServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "dev-game",
+					Namespace:   "default",
+					Annotations: map[string]string{DevAddressAnnotation: "invalid-ip"},
+				},
+				Spec: GameServerSpec{
+					Ports: []GameServerPort{{Name: "main", ContainerPort: 7777, PortPolicy: Static}},
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{Containers: []corev1.Container{
 							{Name: "testing", Image: "testing/image"},
@@ -1031,6 +1643,8 @@ func TestGameServerValidate(t *testing.T) {
 			if tc.applyDefaults {
 				tc.gs.ApplyDefaults()
 			}
+			err := runtime.ParseFeatures(string(runtime.FeatureGameServerTemplateSpecValidation) + "=true")
+			assert.NoError(t, err)
 
 			causes, ok := tc.gs.Validate()
 

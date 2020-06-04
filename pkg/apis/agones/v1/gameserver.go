@@ -489,14 +489,44 @@ func (gss *GameServerSpec) Validate(devAddress string) ([]metav1.StatusCause, bo
 				}
 			}
 		}
+
+		if !runtime.FeatureEnabled(runtime.FeatureGameServerTemplateSpecValidation) {
+			for _, c := range gss.Template.Spec.Containers {
+				validationErrors := validateResources(c)
+				for _, err := range validationErrors {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Field:   "container",
+						Message: err.Error(),
+					})
+				}
+			}
+		}
 	}
 
-	podTemplateSpecCauses := ValidatePodTemplateSpec(&gss.Template)
-	if len(podTemplateSpecCauses) > 0 {
-		causes = append(causes, podTemplateSpecCauses...)
+	if !runtime.FeatureEnabled(runtime.FeatureGameServerTemplateSpecValidation) {
+		objMetaCauses := validateObjectMeta(&gss.Template.ObjectMeta)
+		if len(objMetaCauses) > 0 {
+			causes = append(causes, objMetaCauses...)
+		}
+	} else {
+		podTemplateSpecCauses := ValidatePodTemplateSpec(&gss.Template)
+		if len(podTemplateSpecCauses) > 0 {
+			causes = append(causes, podTemplateSpecCauses...)
+		}
 	}
 
 	return causes, len(causes) == 0
+}
+
+func validateResources(container corev1.Container) []error {
+	validationErrors := make([]error, 0)
+	resourceErrors := ValidateResource(container.Resources.Requests[corev1.ResourceCPU], container.Resources.Limits[corev1.ResourceCPU], corev1.ResourceCPU)
+	validationErrors = append(validationErrors, resourceErrors...)
+	resourceErrors = ValidateResource(container.Resources.Requests[corev1.ResourceMemory], container.Resources.Limits[corev1.ResourceMemory], corev1.ResourceMemory)
+	validationErrors = append(validationErrors, resourceErrors...)
+
+	return validationErrors
 }
 
 // ValidatePodTemplateSpec validates the PodTemplateSpec of a GameServer
